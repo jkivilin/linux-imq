@@ -77,6 +77,12 @@ static inline struct sk_buff *dequeue_skb(struct Qdisc *q)
 	return skb;
 }
 
+struct sk_buff *qdisc_dequeue_skb(struct Qdisc *q)
+{
+	return dequeue_skb(q);
+}
+EXPORT_SYMBOL(qdisc_dequeue_skb);
+
 static inline int handle_dev_cpu_collision(struct sk_buff *skb,
 					   struct netdev_queue *dev_queue,
 					   struct Qdisc *q)

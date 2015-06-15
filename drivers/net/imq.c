@@ -700,7 +700,7 @@ out_no_dev:
 
 static int __imq_nf_queue(struct nf_queue_entry *entry, struct net_device *dev)
 {
-	struct sk_buff *skb_orig, *skb, *skb_shared;
+	struct sk_buff *skb_orig, *skb, *skb_shared, *skb_popd;
 	struct Qdisc *q;
 	struct netdev_queue *txq;
 	spinlock_t *root_lock;
@@ -768,6 +768,8 @@ static int __imq_nf_queue(struct nf_queue_entry *entry, struct net_device *dev)
 
 		skb->destructor = &imq_skb_destructor;
 
+		skb_popd = qdisc_dequeue_skb(q);
+
 		/* cloned? */
 		if (unlikely(skb_orig))
 			kfree_skb(skb_orig); /* free original */
@@ -775,8 +777,18 @@ static int __imq_nf_queue(struct nf_queue_entry *entry, struct net_device *dev)
 		spin_unlock(root_lock);
 		rcu_read_unlock_bh();
 
+#if 0
 		/* schedule qdisc dequeue */
 		__netif_schedule(q);
+#else
+		if (likely(skb_popd)) {
+			txq = netdev_get_tx_queue(dev, skb_get_queue_mapping(skb_popd));
+			HARD_TX_LOCK(dev, txq, smp_processor_id());
+			if (!netif_xmit_frozen_or_stopped(txq))
+				dev_hard_start_xmit(skb_popd, dev, txq);
+			HARD_TX_UNLOCK(dev, txq);
+		}
+#endif
 
 		retval = 0;
 		goto out;
